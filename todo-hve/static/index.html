@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Todo App (HVE build)</title>
+<style>
+  /* "Bold" look: light violet-tinted base, big rounded cards in a grid, gradient accent, colourful chips. */
+  :root {
+    color-scheme: light dark;
+    --gap: 0.75rem; --line: #cfc6ee; --danger: #b42318;
+    --bg: #f6f3ff; --card: #ffffff; --text: #1e1b2e; --muted: #5b5577;
+    --accent-a: #6d28d9; --accent-b: #be185d; --accent-text: #ffffff;
+    --chip-high-bg: #fde4e4; --chip-high-text: #9b1c1c;
+    --chip-medium-bg: #ffefc2; --chip-medium-text: #7a4a00;
+    --chip-low-bg: #dcf7e4; --chip-low-text: #166534;
+    --shadow: 0 8px 28px rgba(80, 50, 160, 0.12);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --line: #3a3159; --danger: #ff9b8f;
+      --bg: #130f22; --card: #1d1733; --text: #f1ecff; --muted: #bdb4dc;
+      --accent-a: #a78bfa; --accent-b: #f472b6; --accent-text: #1a1030;
+      --chip-high-bg: #4a1620; --chip-high-text: #ffb4b4;
+      --chip-medium-bg: #43310a; --chip-medium-text: #ffd98a;
+      --chip-low-bg: #12361f; --chip-low-text: #9be7b2;
+      --shadow: 0 8px 28px rgba(0, 0, 0, 0.45);
+    }
+  }
+  * { box-sizing: border-box; }
+  body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; margin: 0; padding: 1.25rem; line-height: 1.45; background: var(--bg); color: var(--text); }
+  main { max-width: 64rem; margin: 0 auto; display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 22rem), 1fr)); gap: 1.25rem; align-items: start; }
+  main > h1, main > section[aria-labelledby="list-heading"] { grid-column: 1 / -1; }
+  h1 { font-size: 2.4rem; font-weight: 800; letter-spacing: -0.02em; margin: 0.25rem 0 0.5rem; }
+  h1::after { content: ""; display: block; width: 5rem; height: 0.4rem; margin-top: 0.5rem; border-radius: 999px; background: linear-gradient(90deg, var(--accent-a), var(--accent-b)); }
+  h2 { font-size: 1.15rem; font-weight: 700; margin: 0 0 var(--gap); }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 18px; padding: 1.1rem; margin: 0; box-shadow: var(--shadow); }
+  .row { display: flex; flex-wrap: wrap; gap: 0.6rem; align-items: flex-end; }
+  .field { display: flex; flex-direction: column; gap: 0.2rem; flex: 1 1 10rem; min-width: 0; }
+  .field.grow { flex: 2 1 14rem; }
+  label { font-size: 0.85rem; color: var(--muted); }
+  input, select, button { font: inherit; padding: 0.55rem 0.75rem; max-width: 100%; }
+  input, select { width: 100%; min-width: 0; color: var(--text); background: var(--bg); border: 1px solid var(--line); border-radius: 12px; }
+  input:focus, select:focus, button:focus-visible { outline: 3px solid var(--accent-a); outline-offset: 2px; }
+  button { cursor: pointer; border: 1px solid var(--line); border-radius: 12px; background: var(--card); color: var(--text); }
+  button.primary { background: linear-gradient(135deg, var(--accent-a), var(--accent-b)); border-color: transparent; color: var(--accent-text); font-weight: 700; }
+  button.danger { color: var(--danger); border-color: var(--danger); }
+  .error { color: var(--danger); margin: 0.4rem 0 0; min-height: 1.2em; }
+  ul { list-style: none; padding: 0; margin: 0; }
+  ul#todo-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 18rem), 1fr)); gap: 0.9rem; }
+  li.todo { border: 1px solid var(--line); border-radius: 16px; padding: 0.9rem; margin: 0; background: var(--bg); }
+  li.todo.completed .title { text-decoration: line-through; opacity: 0.7; }
+  .title { font-weight: 700; font-size: 1.05rem; overflow-wrap: anywhere; }
+  .meta { font-size: 0.85rem; color: var(--muted); display: flex; flex-wrap: wrap; align-items: center; gap: 0.35rem 0.6rem; margin: 0.35rem 0; }
+  .desc { margin: 0.25rem 0; overflow-wrap: anywhere; white-space: pre-wrap; }
+  .actions { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.5rem; }
+  .empty { color: var(--muted); }
+  .block { border: 2px dashed var(--accent-a); border-radius: 14px; padding: var(--gap); margin-top: var(--gap); }
+  .reply { white-space: pre-wrap; overflow-wrap: anywhere; margin: 0.6rem 0 0; }
+  .status { margin: 0.4rem 0 0; min-height: 1.2em; color: var(--muted); }
+  button:disabled { opacity: 0.5; cursor: not-allowed; }
+  ul.reminders li { margin: 0.35rem 0; overflow-wrap: anywhere; }
+  /* chips: the word is always in the text; colour is only an extra cue */
+  .chip { display: inline-block; padding: 0.05rem 0.65rem; border-radius: 999px; font-weight: 700; font-size: 0.82rem; background: var(--bg); color: var(--muted); border: 1px solid var(--line); }
+  .chip.high, .chip.overdue { background: var(--chip-high-bg); color: var(--chip-high-text); border-color: transparent; }
+  .chip.medium, .chip.soon { background: var(--chip-medium-bg); color: var(--chip-medium-text); border-color: transparent; }
+  .chip.low { background: var(--chip-low-bg); color: var(--chip-low-text); border-color: transparent; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Todo App</h1>
+
+  <section class="card" aria-labelledby="chat-heading">
+    <h2 id="chat-heading">Assistant</h2>
+    <p class="meta">Try: "call mom tomorrow at 5pm", "what priority should 'Submit tax return' be?" or "what is due soon?". The assistant can only suggest; nothing changes until you press Confirm or Accept.</p>
+    <form id="chat-form" novalidate>
+      <div class="row">
+        <div class="field grow"><label for="chat-input">Your message</label><input id="chat-input" maxlength="500" autocomplete="off"></div>
+        <button class="primary" id="chat-send" type="submit">Send</button>
+      </div>
+      <p class="status" id="chat-status" role="status"></p>
+      <p class="error" id="chat-error" role="alert"></p>
+    </form>
+    <p class="reply" id="chat-reply"></p>
+    <div id="chat-result"></div>
+  </section>
+
+  <section class="card" aria-labelledby="add-heading">
+    <h2 id="add-heading">Add a todo</h2>
+    <form id="add-form" novalidate>
+      <div class="row">
+        <div class="field grow"><label for="add-title">Title</label><input id="add-title" maxlength="200" autocomplete="off"></div>
+        <div class="field grow"><label for="add-desc">Description (optional)</label><input id="add-desc" autocomplete="off"></div>
+        <div class="field"><label for="add-due">Due (optional)</label><input id="add-due" type="datetime-local"></div>
+        <div class="field"><label for="add-priority">Priority</label>
+          <select id="add-priority"><option value="low">Low</option><option value="medium" selected>Medium</option><option value="high">High</option></select></div>
+        <button class="primary" type="submit">Add</button>
+      </div>
+      <p class="error" id="add-error" role="alert"></p>
+    </form>
+  </section>
+
+  <section class="card" aria-labelledby="list-heading">
+    <h2 id="list-heading">Your todos</h2>
+    <div class="row">
+      <div class="field"><label for="filter-status">Show</label>
+        <select id="filter-status"><option value="all">All</option><option value="active">Active</option><option value="completed">Completed</option></select></div>
+      <div class="field"><label for="filter-priority">Priority</label>
+        <select id="filter-priority"><option value="">Any</option><option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option></select></div>
+    </div>
+    <p class="error" id="list-error" role="alert"></p>
+    <ul id="todo-list"></ul>
+  </section>
+</main>
+
+<script>
+"use strict";
+const PRIORITY_TEXT = { low: "Low", medium: "Medium", high: "High" };
+
+// Chip colours come from a fixed list of words, never from raw model or user text.
+const CHIP_WORDS = ["low", "medium", "high", "active", "completed", "overdue", "soon"];
+function chipClass(word) { return CHIP_WORDS.includes(word) ? "chip " + word : "chip"; }
+
+function el(tag, text, className) {
+  const node = document.createElement(tag);
+  if (text !== undefined && text !== null) node.textContent = text;
+  if (className) node.className = className;
+  return node;
+}
+
+function field(id, labelText, input, extraClass) {
+  const wrap = el("div", null, "field" + (extraClass ? " " + extraClass : ""));
+  const label = el("label", labelText);
+  input.id = id;
+  label.htmlFor = id;
+  wrap.append(label, input);
+  return wrap;
+}
+
+// Plain-language text for a failed request. Never shows a status code or a field path.
+async function problemText(response) {
+  if (response.status === 404) return "That todo no longer exists. The list has been refreshed.";
+  if (response.status === 422) {
+    let detail = [];
+    try { detail = (await response.json()).detail || []; } catch (e) { detail = []; }
+    const fields = Array.isArray(detail) ? detail.map(d => (d.loc || []).slice(-1)[0]) : [];
+    if (fields.includes("title")) return "The title must be 1 to 200 characters.";
+    if (fields.includes("due_date")) return "The due date and time could not be read.";
+    if (fields.includes("priority")) return "The priority must be low, medium or high.";
+    return "Some of what you entered is not valid. Please check it and try again.";
+  }
+  return "Something went wrong. Please try again.";
+}
+
+async function call(method, path, body) {
+  let response;
+  try {
+    response = await fetch(path, {
+      method,
+      headers: body === undefined ? {} : { "Content-Type": "application/json" },
+      body: body === undefined ? undefined : JSON.stringify(body),
+    });
+  } catch (e) {
+    throw new Error("Could not reach the app. Please check it is running and try again.");
+  }
+  if (!response.ok) throw new Error(await problemText(response));
+  return response.status === 204 ? null : response.json();
+}
+
+function showDue(iso) {
+  const date = new Date(iso);
+  if (isNaN(date)) return iso;
+  return date.toLocaleString([], { dateStyle: "medium", timeStyle: "short" });
+}
+
+function toInputValue(iso) {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (isNaN(d)) return "";
+  const pad = n => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+function renderTodo(todo) {
+  const li = el("li", null, "todo" + (todo.completed ? " completed" : ""));
+  li.dataset.id = todo.id;
+  const error = el("p", "", "error");
+  error.setAttribute("role", "alert");
+
+  const view = el("div");
+  view.append(el("div", todo.title, "title"));
+  const meta = el("div", null, "meta");
+  meta.append(el("span", "Status: " + (todo.completed ? "Completed" : "Active"), chipClass(todo.completed ? "completed" : "active")));
+  meta.append(el("span", "Priority: " + PRIORITY_TEXT[todo.priority], chipClass(todo.priority)));
+  if (todo.due_date) meta.append(el("span", "Due: " + showDue(todo.due_date)));
+  view.append(meta);
+  if (todo.description) view.append(el("div", todo.description, "desc"));
+
+  const actions = el("div", null, "actions");
+  const toggle = el("button", todo.completed ? "Mark not done" : "Mark done");
+  toggle.type = "button";
+  toggle.addEventListener("click", () => act(error, () => call("PATCH", "/todos/" + todo.id, { completed: !todo.completed })));
+  const edit = el("button", "Edit");
+  edit.type = "button";
+  edit.addEventListener("click", () => li.replaceChildren(editForm(todo)));
+  const del = el("button", "Delete", "danger");
+  del.type = "button";
+  del.addEventListener("click", () => act(error, () => call("DELETE", "/todos/" + todo.id)));
+  actions.append(toggle, edit, del);
+
+  li.append(view, actions, error);
+  return li;
+}
+
+function editForm(todo) {
+  const form = el("form");
+  form.noValidate = true;
+  const title = el("input"); title.value = todo.title; title.maxLength = 200;
+  const desc = el("input"); desc.value = todo.description || "";
+  const due = el("input"); due.type = "datetime-local"; due.value = toInputValue(todo.due_date);
+  const priority = el("select");
+  for (const key of Object.keys(PRIORITY_TEXT)) {
+    const option = el("option", PRIORITY_TEXT[key]); option.value = key; priority.append(option);
+  }
+  priority.value = todo.priority;
+  const row = el("div", null, "row");
+  const n = todo.id;
+  row.append(field("e-title-" + n, "Title", title, "grow"), field("e-desc-" + n, "Description", desc, "grow"),
+             field("e-due-" + n, "Due", due), field("e-pri-" + n, "Priority", priority));
+  const error = el("p", "", "error");
+  error.setAttribute("role", "alert");
+  const save = el("button", "Save", "primary"); save.type = "submit";
+  const cancel = el("button", "Cancel"); cancel.type = "button";
+  cancel.addEventListener("click", () => loadTodos());
+  const actions = el("div", null, "actions");
+  actions.append(save, cancel);
+  form.append(row, actions, error);
+  form.addEventListener("submit", ev => {
+    ev.preventDefault();
+    act(error, () => call("PATCH", "/todos/" + todo.id, {
+      title: title.value, description: desc.value, due_date: due.value || null, priority: priority.value,
+    }));
+  });
+  return form;
+}
+
+// Run a change; on success reload the list, on failure show the problem next to the action.
+async function act(errorNode, change) {
+  errorNode.textContent = "";
+  try {
+    await change();
+    await loadTodos();
+  } catch (e) {
+    errorNode.textContent = e.message;
+    if (e.message.startsWith("That todo no longer exists")) loadTodos().then(() => { /* list refreshed */ });
+  }
+}
+
+async function loadTodos() {
+  const status = document.getElementById("filter-status").value;
+  const priority = document.getElementById("filter-priority").value;
+  const params = new URLSearchParams({ status });
+  if (priority) params.set("priority", priority);
+  const listError = document.getElementById("list-error");
+  const list = document.getElementById("todo-list");
+  try {
+    const todos = await call("GET", "/todos?" + params.toString());
+    listError.textContent = "";
+    list.replaceChildren();
+    if (todos.length === 0) list.append(el("li", "No todos to show.", "empty"));
+    for (const todo of todos) list.append(renderTodo(todo));
+  } catch (e) {
+    listError.textContent = e.message;
+  }
+}
+
+document.getElementById("add-form").addEventListener("submit", async ev => {
+  ev.preventDefault();
+  const error = document.getElementById("add-error");
+  const title = document.getElementById("add-title");
+  const desc = document.getElementById("add-desc");
+  const due = document.getElementById("add-due");
+  const priority = document.getElementById("add-priority");
+  error.textContent = "";
+  if (!title.value.trim()) { error.textContent = "Please type a title first."; return; }
+  try {
+    await call("POST", "/todos", {
+      title: title.value, description: desc.value || null, due_date: due.value || null, priority: priority.value,
+    });
+    title.value = ""; desc.value = ""; due.value = ""; priority.value = "medium";
+    await loadTodos();
+  } catch (e) {
+    error.textContent = e.message;
+  }
+});
+
+document.getElementById("filter-status").addEventListener("change", loadTodos);
+document.getElementById("filter-priority").addEventListener("change", loadTodos);
+// ---- Assistant card ----
+const chatEls = {
+  form: document.getElementById("chat-form"), input: document.getElementById("chat-input"),
+  send: document.getElementById("chat-send"), status: document.getElementById("chat-status"),
+  error: document.getElementById("chat-error"), reply: document.getElementById("chat-reply"),
+  result: document.getElementById("chat-result"),
+};
+
+async function chatProblem(response) {
+  if (response.status === 422) return "Your message must be between 1 and 500 characters.";
+  if (response.status === 502 || response.status === 503) {
+    try {
+      const detail = (await response.json()).detail;
+      if (typeof detail === "string") return detail;
+    } catch (e) { /* fall through to the general sentence */ }
+  }
+  return "Something went wrong. Please try again.";
+}
+
+function button(text, className, onClick) {
+  const b = el("button", text, className);
+  b.type = "button";
+  b.addEventListener("click", onClick);
+  return b;
+}
+
+function finishBlock(message) {
+  chatEls.result.replaceChildren();
+  chatEls.reply.textContent = message;
+}
+
+function previewBlock(preview) {
+  const block = el("div", null, "block");
+  block.append(el("div", "Todo preview (not saved yet)", "meta"));
+  block.append(el("div", preview.title, "title"));
+  const meta = el("div", null, "meta");
+  meta.append(el("span", "Priority: " + PRIORITY_TEXT[preview.priority], chipClass(preview.priority)));
+  if (preview.due_date) meta.append(el("span", "Due: " + showDue(preview.due_date)));
+  block.append(meta);
+  if (preview.description) block.append(el("div", preview.description, "desc"));
+  const error = el("p", "", "error");
+  error.setAttribute("role", "alert");
+  const actions = el("div", null, "actions");
+  const confirm = button("Confirm", "primary", async () => {
+    error.textContent = "";
+    actions.querySelectorAll("button").forEach(b => { b.disabled = true; });
+    try {
+      await call("POST", "/todos", {
+        title: preview.title, description: preview.description || null,
+        due_date: preview.due_date || null, priority: preview.priority,
+      });
+      finishBlock('Saved "' + preview.title + '" to your list.');
+      await loadTodos();
+    } catch (e) {
+      error.textContent = e.message;
+      actions.querySelectorAll("button").forEach(b => { b.disabled = false; });
+    }
+  });
+  const cancel = button("Cancel", "", () => finishBlock("Cancelled. Nothing was saved."));
+  actions.append(confirm, cancel);
+  block.append(actions, error);
+  return block;
+}
+
+function suggestionBlock(suggestion) {
+  const block = el("div", null, "block");
+  const head = el("div", "Suggested priority: ", "title");
+  head.append(el("span", PRIORITY_TEXT[suggestion.priority], chipClass(suggestion.priority)));
+  block.append(head);
+  block.append(el("div", suggestion.reason, "desc"));
+  if (suggestion.todo_id === null || suggestion.todo_id === undefined) return block;  // no saved todo: nothing to accept
+  block.append(el("div", 'For your todo: "' + suggestion.todo_title + '"', "meta"));
+  const error = el("p", "", "error");
+  error.setAttribute("role", "alert");
+  const actions = el("div", null, "actions");
+  const accept = button("Accept", "primary", async () => {
+    error.textContent = "";
+    actions.querySelectorAll("button").forEach(b => { b.disabled = true; });
+    try {
+      await call("PATCH", "/todos/" + suggestion.todo_id, { priority: suggestion.priority });
+      finishBlock('Priority of "' + suggestion.todo_title + '" is now ' + PRIORITY_TEXT[suggestion.priority] + ".");
+      await loadTodos();
+    } catch (e) {
+      error.textContent = e.message;
+      actions.querySelectorAll("button").forEach(b => { b.disabled = false; });
+      loadTodos();
+    }
+  });
+  const ignore = button("Ignore", "", () => finishBlock("Ignored. Nothing was changed."));
+  actions.append(accept, ignore);
+  block.append(actions, error);
+  return block;
+}
+
+function remindersList(reminders) {
+  const list = el("ul", null, "reminders");
+  for (const item of reminders) {
+    const label = item.overdue ? "Overdue" : "Due soon";
+    const row = el("li");
+    row.append(el("span", label, chipClass(item.overdue ? "overdue" : "soon")),
+      document.createTextNode(": " + item.title + " (due " + showDue(item.due_date) + ")"));
+    list.append(row);
+  }
+  return list;
+}
+
+function renderChatResult(data) {
+  const hasList = Array.isArray(data.reminders) && data.reminders.length > 0;
+  chatEls.reply.textContent = hasList ? data.reply.split("\n")[0] : data.reply;
+  chatEls.result.replaceChildren();
+  if (data.preview) chatEls.result.append(previewBlock(data.preview));
+  if (data.suggestion) chatEls.result.append(suggestionBlock(data.suggestion));
+  if (hasList) chatEls.result.append(remindersList(data.reminders));
+}
+
+chatEls.form.addEventListener("submit", async ev => {
+  ev.preventDefault();
+  const message = chatEls.input.value.trim();
+  chatEls.error.textContent = "";
+  chatEls.reply.textContent = "";
+  chatEls.result.replaceChildren();
+  if (!message) { chatEls.error.textContent = "Please type a message first."; return; }
+  chatEls.send.disabled = true;
+  chatEls.status.textContent = "Thinking...";
+  try {
+    let response;
+    try {
+      response = await fetch("/agent/message", {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ message }),
+      });
+    } catch (e) {
+      throw new Error("Could not reach the app. Please check it is running and try again.");
+    }
+    if (!response.ok) throw new Error(await chatProblem(response));
+    renderChatResult(await response.json());
+  } catch (e) {
+    chatEls.error.textContent = e.message;  // the typed message stays so it can be sent again
+  } finally {
+    chatEls.send.disabled = false;
+    chatEls.status.textContent = "";
+  }
+});
+
+loadTodos();
+</script>
+</body>
+</html>

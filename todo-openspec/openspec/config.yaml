@@ -1,0 +1,26 @@
+schema: spec-driven
+
+# Project context: facts an agent cannot infer by reading the code.
+context: |
+  This is the OpenSpec build of an "Agentic Todo App". The full shared
+  requirements are in docs/requirements.md (FR-*, NFR-*, AC-* IDs). Cite those
+  IDs in specs and tasks instead of inventing new requirements.
+  Stack (fixed): Python + FastAPI backend, SQLite storage, one plain HTML/JS
+  page served by FastAPI, LangGraph for agents, GroqCloud as the LLM.
+  Hard rules:
+    - The Groq API key lives only in .env (gitignored); never in code or logs.
+    - Core todo features must keep working when Groq is unavailable.
+    - Agents may only read, suggest and propose previews; they never edit or
+      delete todos, and nothing agent-created is saved without user confirmation.
+    - Automated tests must run without network access or an API key
+      (mock the LLM).
+
+rules:
+  proposal:
+    - Always state what is out of scope
+    - Reference the FR/NFR IDs from docs/requirements.md that the change covers
+  specs:
+    - Write scenarios in WHEN/THEN form so they map to the AC-* criteria
+  tasks:
+    - Keep tasks small enough to finish and test in one sitting
+    - Include a task for writing automated tests

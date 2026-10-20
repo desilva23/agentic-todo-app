@@ -1,0 +1,19 @@
+[run]
+source = app
+branch = True
+omit =
+    tests/*
+    */__init__.py
+
+[report]
+show_missing = True
+skip_empty = True
+exclude_lines =
+    pragma: no cover
+    if __name__ == .__main__.:
+
+[xml]
+output = coverage.xml
+
+[html]
+directory = htmlcov

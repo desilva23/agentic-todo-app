@@ -1,0 +1,58 @@
+%%{init: {"theme": "base", "themeVariables": {"fontFamily": "Arial, Helvetica, sans-serif", "fontSize": "15px", "primaryColor": "#eef2ff", "primaryBorderColor": "#4f46e5", "lineColor": "#475569"}}}%%
+flowchart TB
+    user(["User in a browser"])
+
+    subgraph UI["Web page: static/index.html"]
+        todoUI["Todo list UI<br/>add / edit / complete / delete / filter"]
+        chatUI["Assistant card<br/>message, preview Confirm/Cancel,<br/>suggestion Accept/Ignore, reminders"]
+    end
+
+    subgraph API["FastAPI: main.py, chat.py"]
+        todoAPI["Todo API<br/>POST/GET/PATCH/DELETE /todos"]
+        chatAPI["POST /agent/message<br/>validate, run graph, map errors,<br/>log decision line"]
+    end
+
+    subgraph CORE["Core: works with no AI"]
+        models["models.py<br/>validation"]
+        storage["storage.py<br/>SQLite, parameterised SQL"]
+        db[("todos.db")]
+        models --> storage --> db
+    end
+
+    subgraph AGENTS["Assistant: app/agents (read-only)"]
+        lg{{"graph.py<br/>LangGraph router"}}
+        orch["orchestrator.py<br/>decides the intent"]
+        task["task_agent.py<br/>sentence to todo PREVIEW"]
+        prio["priority_agent.py<br/>low / medium / high + reason"]
+        due["due.py<br/>overdue / due soon<br/>(plain code, no AI)"]
+        helpmsg["help reply<br/>(unknown intent)"]
+        struct["structured.py<br/>JSON + 1 retry + data blocks"]
+        llm["llm.py<br/>call_model, 20 s budget,<br/>safe errors"]
+        lg -->|1 decide intent| orch
+        orch -->|create_todo| task
+        orch -->|suggest_priority| prio
+        orch -->|show_due| due
+        orch -->|unknown| helpmsg
+        orch --> struct
+        task --> struct
+        prio --> struct
+        struct --> llm
+    end
+
+    groq[["GroqCloud LLM<br/>(via langchain-groq)"]]
+    env[/".env<br/>GROQ_API_KEY (never in code or logs)"/]
+
+    user --> UI
+    todoUI -->|fetch| todoAPI
+    chatUI -->|fetch| chatAPI
+    todoAPI --> models
+    chatAPI --> lg
+    chatAPI -. "read_todos() function only" .-> storage
+    chatUI -->|"Confirm: POST /todos<br/>Accept: PATCH /todos/id"| todoAPI
+    llm -->|HTTPS| groq
+    env -.-> llm
+
+    classDef safe fill:#ecfdf5,stroke:#059669,color:#064e3b
+    classDef ai fill:#fef3c7,stroke:#d97706,color:#78350f
+    class due,helpmsg,models,storage,db safe
+    class orch,task,prio,struct,llm,groq ai

@@ -1,0 +1,524 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Todo App</title>
+<link rel="icon" href="data:,">
+<style>
+  /* "Paper" look: warm paper, ink-blue accent, serif headings, thin rules instead of boxes. */
+  :root {
+    --bg: #faf6ee; --card: #faf6ee; --text: #26231f; --muted: #5f5a52;
+    --line: #d9d1c0; --accent: #1f3f7a; --accent-text: #faf6ee;
+    --danger: #9b2c1f; --danger-bg: #f6e4de;
+    --high: #9b2c1f; --medium: #7a5200; --low: #2f6a3b;
+    --serif: Georgia, "Times New Roman", serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1b1915; --card: #1b1915; --text: #ece6d8; --muted: #b3ab9b;
+      --line: #3a352d; --accent: #8fb0ee; --accent-text: #14192a;
+      --danger: #f0958a; --danger-bg: #3a2420;
+      --high: #f0958a; --medium: #e6b858; --low: #8fd19b;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font: 16px/1.55 system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  main { max-width: 680px; margin: 0 auto; padding: 32px 20px 48px; }
+  h1 {
+    font-family: Georgia, "Times New Roman", serif; font-size: 2.2rem; font-weight: 700;
+    letter-spacing: -.01em; margin: 0; padding-bottom: 6px;
+  }
+  .tagline {
+    font-family: var(--serif); font-style: italic; color: var(--muted); margin: 0 0 20px;
+    padding-bottom: 14px; border-bottom: 3px double var(--line);
+  }
+  h2 {
+    font-family: var(--serif); font-size: 1rem; font-weight: 700; margin: 0 0 10px;
+    font-variant-caps: all-small-caps; letter-spacing: .12em; color: var(--muted);
+  }
+  .card { background: transparent; border: 0; border-top: 1px solid var(--line); padding: 20px 0; margin: 0; }
+  .card[aria-label="Assistant"] { border-left: 3px solid var(--accent); padding-left: 16px; border-top: 0; }
+  form.stack { display: grid; gap: 12px; }
+  .row { display: flex; flex-wrap: wrap; gap: 12px; }
+  .row > * { flex: 1 1 140px; min-width: 0; }
+  label { display: grid; gap: 4px; font-size: .85rem; color: var(--muted); }
+  input[type=text], input[type=datetime-local], select, textarea {
+    width: 100%; min-height: 40px; padding: 8px 2px; font: inherit;
+    color: var(--text); background: transparent;
+    border: 0; border-bottom: 1px solid var(--muted); border-radius: 0;
+  }
+  input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent); outline-offset: 2px; }
+  textarea { resize: vertical; min-height: 60px; border: 1px solid var(--line); padding: 8px; }
+  button {
+    min-height: 40px; padding: 8px 16px; font: inherit; cursor: pointer; letter-spacing: .02em;
+    border-radius: 2px; border: 1px solid var(--text); background: transparent; color: var(--text);
+  }
+  button.primary { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
+  button.danger { color: var(--danger); border-color: var(--danger); }
+  input[type=checkbox] { accent-color: var(--accent); }
+  .error {
+    margin: 0; padding: 6px 10px; border-left: 3px solid var(--danger);
+    background: var(--danger-bg); color: var(--danger); font-size: .9rem;
+  }
+  .error:empty { display: none; }
+  ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 0; }
+  li.todo {
+    display: grid; grid-template-columns: auto 1fr; gap: 6px 14px;
+    background: transparent; border: 0; border-bottom: 1px solid var(--line);
+    border-radius: 0; padding: 16px 0;
+  }
+  li.todo input[type=checkbox] { width: 22px; height: 22px; margin-top: 3px; }
+  .title { font-family: var(--serif); font-weight: 700; font-size: 1.1rem; overflow-wrap: anywhere; }
+  li.completed .title { text-decoration: line-through; color: var(--muted); }
+  .desc { margin: 2px 0 0; color: var(--muted); font-size: .92rem; overflow-wrap: anywhere; }
+  .meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin-top: 6px; font-size: .85rem; color: var(--muted); }
+  /* status and priority are WORDS shown as small-caps tags; colour is only an extra cue */
+  .badge, .status, .tag {
+    font-variant-caps: all-small-caps; letter-spacing: .08em; font-weight: 700; font-size: .85rem;
+    padding: 0 8px; border: 1px solid currentColor; border-radius: 2px; text-transform: none;
+  }
+  .badge.high { color: var(--high); } .badge.medium { color: var(--medium); } .badge.low { color: var(--low); }
+  .status { color: var(--muted); }
+  .overdue { color: var(--danger); font-weight: 700; }
+  .actions { grid-column: 2; display: flex; gap: 8px; flex-wrap: wrap; }
+  .item-error { grid-column: 1 / -1; }
+  .empty { text-align: center; color: var(--muted); padding: 28px 0; font-family: var(--serif); font-style: italic; }
+  [hidden] { display: none !important; }
+  .chat-line { display: flex; flex-wrap: wrap; gap: 12px; }
+  .chat-line input { flex: 1 1 200px; min-width: 0; }
+  .loading { margin: 0; color: var(--muted); font-size: .9rem; font-style: italic; }
+  .reply { margin: 0; overflow-wrap: anywhere; white-space: pre-line; }
+  .suggestion, .preview {
+    display: grid; gap: 6px; padding: 10px 0 10px 14px; background: transparent;
+    border: 0; border-left: 3px double var(--accent);
+  }
+  .suggestion .buttons, .preview .buttons { display: flex; gap: 8px; flex-wrap: wrap; }
+  .reasoning { margin: 0; color: var(--muted); overflow-wrap: anywhere; }
+  .reminders { display: grid; gap: 0; }
+  .reminders li {
+    display: grid; grid-template-columns: auto 1fr; gap: 2px 12px; align-items: baseline;
+    padding: 10px 0; border: 0; border-bottom: 1px solid var(--line); background: transparent;
+  }
+  .reminders .when { grid-column: 2; color: var(--muted); font-size: .85rem; }
+  .tag.overdue { color: var(--danger); background: var(--danger-bg); }
+  .tag.soon { color: var(--muted); }
+</style>
+</head>
+<body>
+<main>
+  <h1>Todos</h1>
+  <p class="tagline">A quiet place to keep what needs doing.</p>
+
+  <section class="card" aria-label="Assistant">
+    <h2>Assistant</h2>
+    <form id="chat-form" class="stack" novalidate>
+      <label for="chat-input">Assistant: describe a todo in plain English</label>
+      <div class="chat-line">
+        <input type="text" id="chat-input" placeholder="e.g. call mom tomorrow at 5pm" autocomplete="off">
+        <button type="submit" class="primary" id="chat-send">Send</button>
+      </div>
+      <p class="loading" id="chat-loading" role="status" hidden>Thinking…</p>
+      <p class="error" id="chat-error" role="alert"></p>
+      <p class="reply" id="chat-reply" aria-live="polite"></p>
+      <div class="preview" id="chat-preview" hidden></div>
+      <div class="suggestion" id="chat-suggestion" hidden></div>
+      <ul class="reminders" id="chat-reminders" aria-label="Overdue and due soon" hidden></ul>
+    </form>
+  </section>
+
+  <section class="card" aria-label="Add a todo">
+    <h2>New todo</h2>
+    <form id="add-form" class="stack" novalidate>
+      <label>Title
+        <input type="text" id="new-title" placeholder="What needs doing?" autocomplete="off">
+      </label>
+      <label>Description (optional)
+        <textarea id="new-description"></textarea>
+      </label>
+      <div class="row">
+        <label>Due (optional)
+          <input type="datetime-local" id="new-due">
+        </label>
+        <label>Priority
+          <select id="new-priority">
+            <option value="low">Low</option>
+            <option value="medium" selected>Medium</option>
+            <option value="high">High</option>
+          </select>
+        </label>
+      </div>
+      <p class="error" id="add-error" role="alert"></p>
+      <button type="submit" class="primary">Add todo</button>
+    </form>
+  </section>
+
+  <section class="card" aria-label="Filters">
+    <h2>Show</h2>
+    <div class="row">
+      <label>Show
+        <select id="filter-status">
+          <option value="all">All</option>
+          <option value="active">Active</option>
+          <option value="completed">Completed</option>
+        </select>
+      </label>
+      <label>Priority
+        <select id="filter-priority">
+          <option value="">Any</option>
+          <option value="low">Low</option>
+          <option value="medium">Medium</option>
+          <option value="high">High</option>
+        </select>
+      </label>
+    </div>
+  </section>
+
+  <p class="error" id="list-error" role="alert"></p>
+  <ul id="todo-list" aria-live="polite"></ul>
+</main>
+
+<script>
+  const FIELD_MESSAGES = {
+    title: "Title is required and must be 1 to 200 characters.",
+    priority: "Priority must be low, medium or high.",
+    due_date: "The due date is not a valid date and time.",
+    description: "The description is not valid.",
+    status: "Status must be all, active or completed.",
+    message: "Please type a message of 1 to 500 characters.",
+  };
+
+  class ApiError extends Error {
+    constructor(status, body) { super("API error"); this.status = status; this.body = body; }
+  }
+
+  async function api(path, options = {}) {
+    const response = await fetch(path, {
+      headers: { "Content-Type": "application/json" },
+      ...options,
+    });
+    if (response.status === 204) return null;
+    const body = await response.json().catch(() => null);
+    if (!response.ok) throw new ApiError(response.status, body);
+    return body;
+  }
+
+  // Turn FastAPI's technical errors into plain sentences.
+  function friendlyError(err) {
+    if (!(err instanceof ApiError)) return "Could not reach the server. Please try again.";
+    const detail = err.body && err.body.detail;
+    if (Array.isArray(detail)) {
+      const messages = detail.map((item) => {
+        const field = item.loc && item.loc[item.loc.length - 1];
+        return FIELD_MESSAGES[field] || "Please check the values you entered.";
+      });
+      return [...new Set(messages)].join(" ");
+    }
+    if (typeof detail === "string") return detail;
+    return "Something went wrong. Please try again.";
+  }
+
+  const $ = (id) => document.getElementById(id);
+  const list = $("todo-list");
+
+  function el(tag, props = {}, ...children) {
+    const node = Object.assign(document.createElement(tag), props);
+    children.forEach((child) => node.append(child));
+    return node;
+  }
+
+  function formatDue(iso) {
+    return new Date(iso).toLocaleString([], { dateStyle: "medium", timeStyle: "short" });
+  }
+
+  function toInputValue(iso) { return iso ? iso.slice(0, 16) : ""; }
+
+  async function load() {
+    $("list-error").textContent = "";
+    const params = new URLSearchParams({ status: $("filter-status").value });
+    if ($("filter-priority").value) params.set("priority", $("filter-priority").value);
+    try {
+      const todos = await api("/todos?" + params);
+      render(todos);
+    } catch (err) {
+      $("list-error").textContent = friendlyError(err);
+    }
+  }
+
+  function render(todos) {
+    list.replaceChildren();
+    if (todos.length === 0) {
+      list.append(el("li", { className: "empty", textContent: "No todos to show." }));
+      return;
+    }
+    todos.forEach((todo) => list.append(renderTodo(todo)));
+  }
+
+  function renderTodo(todo) {
+    const li = el("li", { className: "todo" + (todo.completed ? " completed" : "") });
+    li.dataset.id = todo.id;
+    const errorBox = el("p", { className: "error item-error", role: "alert" });
+
+    const checkbox = el("input", { type: "checkbox", checked: todo.completed });
+    checkbox.setAttribute("aria-label", "Mark complete");
+    checkbox.addEventListener("change", () => act(errorBox, () =>
+      api(`/todos/${todo.id}`, { method: "PATCH", body: JSON.stringify({ completed: checkbox.checked }) })));
+
+    const body = el("div", {}, el("div", { className: "title", textContent: todo.title }));
+    if (todo.description) body.append(el("p", { className: "desc", textContent: todo.description }));
+
+    const meta = el("div", { className: "meta" },
+      el("span", { className: "badge " + todo.priority, textContent: todo.priority + " priority" }),
+      el("span", { className: "status", textContent: todo.status }));
+    if (todo.due_date) {
+      const overdue = !todo.completed && new Date(todo.due_date) < new Date();
+      meta.append(el("span", {
+        className: overdue ? "overdue" : "",
+        textContent: (overdue ? "Overdue: " : "Due: ") + formatDue(todo.due_date),
+      }));
+    }
+    body.append(meta);
+
+    const editBtn = el("button", { type: "button", textContent: "Edit" });
+    editBtn.addEventListener("click", () => li.replaceWith(renderEditor(todo)));
+    const deleteBtn = el("button", { type: "button", className: "danger", textContent: "Delete" });
+    deleteBtn.addEventListener("click", () => act(errorBox, () =>
+      api(`/todos/${todo.id}`, { method: "DELETE" })));
+
+    li.append(checkbox, body, el("div", { className: "actions" }, editBtn, deleteBtn), errorBox);
+    return li;
+  }
+
+  function renderEditor(todo) {
+    const title = el("input", { type: "text", value: todo.title });
+    const description = el("textarea", { value: todo.description || "" });
+    const due = el("input", { type: "datetime-local", value: toInputValue(todo.due_date) });
+    const priority = el("select");
+    ["low", "medium", "high"].forEach((p) =>
+      priority.append(el("option", { value: p, textContent: p[0].toUpperCase() + p.slice(1), selected: p === todo.priority })));
+    const errorBox = el("p", { className: "error", role: "alert" });
+    const save = el("button", { type: "submit", className: "primary", textContent: "Save" });
+    const cancel = el("button", { type: "button", textContent: "Cancel" });
+
+    const form = el("form", { className: "stack card" },
+      el("label", { textContent: "Title " }, title),
+      el("label", { textContent: "Description " }, description),
+      el("div", { className: "row" },
+        el("label", { textContent: "Due " }, due),
+        el("label", { textContent: "Priority " }, priority)),
+      errorBox,
+      el("div", { className: "row" }, save, cancel));
+    form.noValidate = true;
+
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      errorBox.textContent = "";
+      try {
+        await api(`/todos/${todo.id}`, {
+          method: "PATCH",
+          body: JSON.stringify({
+            title: title.value,
+            description: description.value || null,
+            due_date: due.value || null,
+            priority: priority.value,
+          }),
+        });
+        await load();
+      } catch (err) {
+        errorBox.textContent = friendlyError(err);
+      }
+    });
+    cancel.addEventListener("click", () => load());
+
+    const li = el("li", { className: "todo" });
+    li.style.gridTemplateColumns = "1fr";
+    li.append(form);
+    return li;
+  }
+
+  // Run an action, then refresh the list; show a readable error beside the item if it fails.
+  async function act(errorBox, action) {
+    errorBox.textContent = "";
+    try {
+      await action();
+      await load();
+    } catch (err) {
+      errorBox.textContent = friendlyError(err);
+    }
+  }
+
+  $("add-form").addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const errorBox = $("add-error");
+    errorBox.textContent = "";
+    try {
+      await api("/todos", {
+        method: "POST",
+        body: JSON.stringify({
+          title: $("new-title").value,
+          description: $("new-description").value || null,
+          due_date: $("new-due").value || null,
+          priority: $("new-priority").value,
+        }),
+      });
+      $("add-form").reset();
+      await load();
+    } catch (err) {
+      errorBox.textContent = friendlyError(err);
+    }
+  });
+
+  // ---- Assistant (chat box) ----
+  // The assistant only PROPOSES a todo. Nothing is saved until the user presses Confirm,
+  // which uses the same POST /todos as the add form.
+  const chat = {
+    form: $("chat-form"), input: $("chat-input"), send: $("chat-send"),
+    loading: $("chat-loading"), error: $("chat-error"),
+    reply: $("chat-reply"), preview: $("chat-preview"),
+    suggestion: $("chat-suggestion"), reminders: $("chat-reminders"),
+  };
+
+  function clearChat() {
+    chat.error.textContent = "";
+    chat.reply.textContent = "";
+    for (const box of [chat.preview, chat.suggestion, chat.reminders]) {
+      box.hidden = true;
+      box.replaceChildren();
+    }
+  }
+
+  // The assistant only SUGGESTS a priority. Nothing changes until the user presses Accept,
+  // which uses the normal edit request (PATCH /todos/{id}).
+  function showSuggestion(suggestion) {
+    const linked = suggestion.todo_id !== null && suggestion.todo_id !== undefined;
+    const heading = el("div", { className: "title" },
+      "Suggested priority: ",
+      el("span", { className: "badge " + suggestion.priority, textContent: suggestion.priority }));
+    const parts = [heading, el("p", { className: "reasoning", textContent: suggestion.reason })];
+
+    if (linked) {
+      const acceptBtn = el("button", { type: "button", className: "primary", textContent: "Accept" });
+      const ignoreBtn = el("button", { type: "button", textContent: "Ignore" });
+      const suggestionError = el("p", { className: "error", role: "alert" });
+
+      acceptBtn.addEventListener("click", async () => {
+        suggestionError.textContent = "";
+        acceptBtn.disabled = ignoreBtn.disabled = true;
+        try {
+          await api(`/todos/${suggestion.todo_id}`, {
+            method: "PATCH",
+            body: JSON.stringify({ priority: suggestion.priority }),
+          });
+          clearChat();
+          chat.reply.textContent = `Priority of "${suggestion.todo_title}" set to ${suggestion.priority}.`;
+          await load();
+        } catch (err) {
+          suggestionError.textContent = friendlyError(err);
+          acceptBtn.disabled = ignoreBtn.disabled = false;
+        }
+      });
+      ignoreBtn.addEventListener("click", () => {
+        clearChat();
+        chat.reply.textContent = "Ignored. Nothing was changed.";
+      });
+
+      parts.push(
+        el("div", { className: "desc", textContent: "For todo: " + suggestion.todo_title }),
+        suggestionError,
+        el("div", { className: "buttons" }, acceptBtn, ignoreBtn));
+    }
+    chat.suggestion.replaceChildren(...parts);
+    chat.suggestion.hidden = false;
+  }
+
+  function showReminders(reminders) {
+    const rows = reminders.map((item) => el("li", {},
+      el("span", { className: "tag " + (item.overdue ? "overdue" : "soon"), textContent: item.overdue ? "Overdue" : "Due soon" }),
+      el("span", { className: "title", textContent: item.title }),
+      el("span", { className: "when", textContent: formatDue(item.due_date) })));
+    chat.reminders.replaceChildren(...rows);
+    chat.reminders.hidden = false;
+  }
+
+  function setChatBusy(busy) {
+    chat.loading.hidden = !busy;
+    chat.send.disabled = busy;
+    chat.form.setAttribute("aria-busy", String(busy));
+  }
+
+  function showPreview(preview) {
+    const meta = el("div", { className: "meta" },
+      el("span", { className: "badge " + preview.priority, textContent: preview.priority + " priority" }),
+      el("span", { textContent: preview.due_date ? "Due: " + formatDue(preview.due_date) : "No due date" }));
+    const confirmBtn = el("button", { type: "button", className: "primary", textContent: "Confirm" });
+    const cancelBtn = el("button", { type: "button", textContent: "Cancel" });
+    const previewError = el("p", { className: "error", role: "alert" });
+
+    confirmBtn.addEventListener("click", async () => {
+      previewError.textContent = "";
+      confirmBtn.disabled = cancelBtn.disabled = true;
+      try {
+        await api("/todos", {
+          method: "POST",
+          body: JSON.stringify({
+            title: preview.title,
+            description: preview.description,
+            due_date: preview.due_date,
+            priority: preview.priority,
+          }),
+        });
+        clearChat();
+        chat.reply.textContent = "Saved: " + preview.title;
+        await load();
+      } catch (err) {
+        previewError.textContent = friendlyError(err);
+        confirmBtn.disabled = cancelBtn.disabled = false;
+      }
+    });
+    cancelBtn.addEventListener("click", () => {
+      clearChat();
+      chat.reply.textContent = "Discarded. Nothing was saved.";
+    });
+
+    chat.preview.replaceChildren(
+      el("div", { className: "title", textContent: preview.title }),
+      ...(preview.description ? [el("p", { className: "desc", textContent: preview.description })] : []),
+      meta, previewError,
+      el("div", { className: "buttons" }, confirmBtn, cancelBtn));
+    chat.preview.hidden = false;
+  }
+
+  chat.form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    clearChat();
+    const message = chat.input.value.trim();
+    if (!message) {
+      chat.error.textContent = "Please type a message first.";
+      return;  // nothing is sent to the assistant
+    }
+    setChatBusy(true);
+    try {
+      const result = await api("/agent/message", { method: "POST", body: JSON.stringify({ message }) });
+      chat.input.value = "";
+      const hasReminders = Array.isArray(result.reminders) && result.reminders.length > 0;
+      // With a list to show, only the headline (first line) of the summary is needed above it.
+      chat.reply.textContent = hasReminders ? result.reply.split("\n")[0] : result.reply;
+      if (result.preview) showPreview(result.preview);
+      if (result.suggestion) showSuggestion(result.suggestion);
+      if (hasReminders) showReminders(result.reminders);
+    } catch (err) {
+      chat.error.textContent = friendlyError(err);  // the rest of the page keeps working
+    } finally {
+      setChatBusy(false);
+    }
+  });
+
+  $("filter-status").addEventListener("change", load);
+  $("filter-priority").addEventListener("change", load);
+  load();
+</script>
+</body>
+</html>
