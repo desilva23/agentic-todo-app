@@ -1,0 +1,9 @@
+# Allow-list for `gcloud builds submit`: only what the build needs is uploaded. .env is never uploaded.
+/*
+!/Dockerfile
+!/.dockerignore
+!/requirements.txt
+!/app
+!/static
+**/__pycache__
+**/*.pyc

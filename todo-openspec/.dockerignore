@@ -1,0 +1,7 @@
+# Allow-list: send Docker only what the image needs. This keeps .env (your key) out of every image.
+*
+!requirements.txt
+!app
+!static
+**/__pycache__
+**/*.pyc
